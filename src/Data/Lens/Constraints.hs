@@ -138,3 +138,42 @@ instance AsArithException ArithException where
 
 instance AsArithException SomeException where
   _AsArithException' = exception
+
+----
+
+-- TEST CASE
+
+-- once was:
+class AsInt a where
+  _Int ::
+    Prism'
+      a
+      Int
+
+instance AsInt Int where
+  _Int =
+    id
+
+class HasInt a where
+  int ::
+    Lens'
+      a
+      Int
+
+instance HasInt Int where
+  int =
+    id
+
+class ManyInts a where
+  ints ::
+    Traversal'
+      a
+      Int
+
+instance ManyInts Int where
+  ints =
+    id
+
+-- NOW IS:
+
+-- ?
