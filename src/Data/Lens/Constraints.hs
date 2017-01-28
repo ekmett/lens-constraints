@@ -10,6 +10,8 @@
 {-# language MultiParamTypeClasses #-}
 {-# language FunctionalDependencies #-}
 
+module Data.Lens.Constraints where
+
 import Control.Category
 import Control.Exception
 import Control.Exception.Lens (exception)
