@@ -186,23 +186,25 @@ class AssInt t where
   default _AssIntIsPrism :: (AssIntConstraint t ~ PrismConstraint) => proxy t -> Dict (AssIntConstraint t :< PrismConstraint)
   _AssIntIsPrism _ = Dict
 
-  _AssIntIsLens :: proxy t -> Dict (AssIntConstraint t :< LensConstraint)
-  default _AssIntIsLens :: (AssIntConstraint t ~ LensConstraint) => proxy t -> Dict (AssIntConstraint t :< LensConstraint)
-  _AssIntIsLens _ = Dict
-
 data OrInt a = IsInt Int | NotInt a deriving (Eq, Ord, Show)
-data AndInt a = AndInt Int a deriving (Eq, Ord, Show)
+data WrapInt = WrapInt Int deriving (Eq, Ord, Show)
 
 instance AssInt Int where
   type AssIntConstraint Int = EqualityConstraint
   _AssIntIsPrism _ = Dict
-  _AssIntIsLens _ = Dict
   _AssInt' = id
+
+instance AssInt WrapInt where
+  type AssIntConstraint WrapInt = IsoConstraint
+  _AssIntIsPrism _ = Dict
+  _AssInt' = 
+    iso
+      (\(WrapInt n) -> n)
+      WrapInt
 
 instance AssInt (OrInt a) where
   type AssIntConstraint (OrInt a) = PrismConstraint
   _AssIntIsPrism _ = Dict
-  _AssIntIsLens _ = undefined -- ???
   _AssInt' =
     prism'
       IsInt
@@ -210,21 +212,38 @@ instance AssInt (OrInt a) where
                IsInt n -> Just n
                NotInt _ -> Nothing)
 
-instance AssInt (AndInt a) where
-  type AssIntConstraint (AndInt a) = LensConstraint
-  _AssIntIsPrism _ = undefined -- ???
-  _AssIntIsLens _ = Dict
-  _AssInt' =
-    lens
-      (\(AndInt n _) -> n)
-      (\(AndInt _ a) n -> AndInt n a)
-
 _AssInt :: forall t p f. (AssInt t, Choice p, Applicative f) => Optic' p f t Int
 _AssInt = case _AssIntIsPrism (Proxy :: Proxy t) of
   Dict -> case impl :: PrismConstraint p f :- AssIntConstraint t p f of
     Sub Dict -> _AssInt'
 
-_HasInt :: forall t p f. (AssInt t, p ~ (->), Functor f) => Optic' p f t Int
-_HasInt = case _AssIntIsLens (Proxy :: Proxy t) of
-  Dict -> case impl :: LensConstraint p f :- AssIntConstraint t p f of
-    Sub Dict -> _AssInt' 
+class ReviewInt t where
+  type ReviewIntConstraint t :: (* -> * -> *) -> (* -> *) -> Constraint
+  _ReviewInt' :: ReviewIntConstraint t p f => Optic' p f t Int
+
+  _ReviewIntIsReview :: proxy t -> Dict (ReviewIntConstraint t :< ReviewConstraint)
+  default _ReviewIntIsReview :: (ReviewIntConstraint t ~ ReviewConstraint) => proxy t -> Dict (ReviewIntConstraint t :< ReviewConstraint)
+  _ReviewIntIsReview _ = Dict
+
+instance ReviewInt Int where
+  type ReviewIntConstraint Int = EqualityConstraint
+  _ReviewIntIsReview _ = Dict
+  _ReviewInt' = id
+
+instance ReviewInt WrapInt where
+  type ReviewIntConstraint WrapInt = IsoConstraint
+  _ReviewIntIsReview _ = Dict
+  _ReviewInt' = 
+    iso
+      (\(WrapInt n) -> n)
+      WrapInt
+
+instance ReviewInt (OrInt a) where
+  type ReviewIntConstraint (OrInt a) = ReviewConstraint
+  _ReviewIntIsReview _ = Dict
+  _ReviewInt' =
+    prism'
+      IsInt
+      (\o -> case o of
+               IsInt n -> Just n
+               NotInt _ -> Nothing)
