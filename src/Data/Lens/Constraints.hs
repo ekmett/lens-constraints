@@ -139,111 +139,71 @@ instance AsArithException ArithException where
 instance AsArithException SomeException where
   _AsArithException' = exception
 
-----
-
--- TEST CASE
-
--- once was:
-class AsInt a where
-  _Int ::
-    Prism'
-      a
-      Int
-
-instance AsInt Int where
-  _Int =
-    id
-
-class HasInt a where
-  int ::
-    Lens'
-      a
-      Int
-
-instance HasInt Int where
-  int =
-    id
-
-class ManyInts a where
-  ints ::
-    Traversal'
-      a
-      Int
-
-instance ManyInts Int where
-  ints =
-    id
-
--- NOW IS:
-
--- ?
-
-class AssInt t where
-  type AssIntConstraint t :: (* -> * -> *) -> (* -> *) -> Constraint
-  _AssInt' :: AssIntConstraint t p f => Optic' p f t Int
-
-  _AssIntIsPrism :: proxy t -> Dict (AssIntConstraint t :< PrismConstraint)
-  default _AssIntIsPrism :: (AssIntConstraint t ~ PrismConstraint) => proxy t -> Dict (AssIntConstraint t :< PrismConstraint)
-  _AssIntIsPrism _ = Dict
-
-data OrInt a = IsInt Int | NotInt a deriving (Eq, Ord, Show)
 data WrapInt = WrapInt Int deriving (Eq, Ord, Show)
 
-instance AssInt Int where
-  type AssIntConstraint Int = EqualityConstraint
-  _AssIntIsPrism _ = Dict
-  _AssInt' = id
+data OrInt a = IsInt Int | NotInt a deriving (Eq, Ord, Show)
 
-instance AssInt WrapInt where
-  type AssIntConstraint WrapInt = IsoConstraint
-  _AssIntIsPrism _ = Dict
-  _AssInt' = 
+class AsInt t where
+  type AsIntConstraint t :: (* -> * -> *) -> (* -> *) -> Constraint
+  _AsInt' :: AsIntConstraint t p f => Optic' p f t Int
+
+  _AsIntIsReview :: proxy t -> Dict (AsIntConstraint t :< ReviewConstraint)
+  default _AsIntIsReview :: (AsIntConstraint t ~ ReviewConstraint) => proxy t -> Dict (AsIntConstraint t :< ReviewConstraint)
+  _AsIntIsReview _ = Dict
+
+instance AsInt Int where
+  type AsIntConstraint Int = EqualityConstraint
+  _AsIntIsReview _ = Dict
+  _AsInt' = id
+
+instance AsInt WrapInt where
+  type AsIntConstraint WrapInt = IsoConstraint
+  _AsIntIsReview _ = Dict
+  _AsInt' = 
     iso
       (\(WrapInt n) -> n)
       WrapInt
 
-instance AssInt (OrInt a) where
-  type AssIntConstraint (OrInt a) = PrismConstraint
-  _AssIntIsPrism _ = Dict
-  _AssInt' =
+instance AsInt (OrInt a) where
+  type AsIntConstraint (OrInt a) = ReviewConstraint
+  _AsIntIsReview _ = Dict
+  _AsInt' =
     prism'
       IsInt
       (\o -> case o of
                IsInt n -> Just n
                NotInt _ -> Nothing)
 
-_AssInt :: forall t p f. (AssInt t, Choice p, Applicative f) => Optic' p f t Int
-_AssInt = case _AssIntIsPrism (Proxy :: Proxy t) of
-  Dict -> case impl :: PrismConstraint p f :- AssIntConstraint t p f of
-    Sub Dict -> _AssInt'
+_AsInt :: forall t p f. (AsInt t, Choice p, Bifunctor p, Settable f) => Optic' p f t Int
+_AsInt = case _AsIntIsReview (Proxy :: Proxy t) of
+  Dict -> case impl :: ReviewConstraint p f :- AsIntConstraint t p f of
+    Sub Dict -> _AsInt'
 
-class ReviewInt t where
-  type ReviewIntConstraint t :: (* -> * -> *) -> (* -> *) -> Constraint
-  _ReviewInt' :: ReviewIntConstraint t p f => Optic' p f t Int
+data AndInt a = AndInt Int a deriving (Eq, Ord, Show)
 
-  _ReviewIntIsReview :: proxy t -> Dict (ReviewIntConstraint t :< ReviewConstraint)
-  default _ReviewIntIsReview :: (ReviewIntConstraint t ~ ReviewConstraint) => proxy t -> Dict (ReviewIntConstraint t :< ReviewConstraint)
-  _ReviewIntIsReview _ = Dict
+class HasInt t where
+  type HasIntConstraint t :: (* -> * -> *) -> (* -> *) -> Constraint
+  _HasInt' :: HasIntConstraint t p f => Optic' p f t Int
 
-instance ReviewInt Int where
-  type ReviewIntConstraint Int = EqualityConstraint
-  _ReviewIntIsReview _ = Dict
-  _ReviewInt' = id
+  _HasIntIsGetter :: proxy t -> Dict (HasIntConstraint t :< GetterConstraint)
+  default _HasIntIsGetter :: (HasIntConstraint t ~ GetterConstraint) => proxy t -> Dict (HasIntConstraint t :< GetterConstraint)
+  _HasIntIsGetter _ = Dict
 
-instance ReviewInt WrapInt where
-  type ReviewIntConstraint WrapInt = IsoConstraint
-  _ReviewIntIsReview _ = Dict
-  _ReviewInt' = 
+instance HasInt Int where
+  type HasIntConstraint Int = EqualityConstraint
+  _HasIntIsGetter _ = Dict
+  _HasInt' = id
+
+instance HasInt WrapInt where
+  type HasIntConstraint WrapInt = IsoConstraint
+  _HasIntIsGetter _ = Dict
+  _HasInt' = 
     iso
       (\(WrapInt n) -> n)
       WrapInt
 
-instance ReviewInt (OrInt a) where
-  type ReviewIntConstraint (OrInt a) = ReviewConstraint
-  _ReviewIntIsReview _ = Dict
-  _ReviewInt' =
-    prism'
-      IsInt
-      (\o -> case o of
-               IsInt n -> Just n
-               NotInt _ -> Nothing)
+instance HasInt (AndInt a) where
+  type HasIntConstraint (AndInt a) = GetterConstraint
+  _HasIntIsGetter _ = Dict
+  _HasInt' =
+    to (\(AndInt n _) -> n)
